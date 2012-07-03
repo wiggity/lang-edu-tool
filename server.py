@@ -44,7 +44,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 		while 1 :
 			self.request.send("Word list in memory...\n")
 			for k,v in self.words.iteritems() :
-				self.request.send("%s - %s\n" % (k, v))
+				self.request.send("%s - %s\n" % (k.ljust(15), v))
 			self.request.send("...\n")
 			self.request.send("Enter an option.\n1 to add a new word.\n2 to delete a word.\nq to quit.\n")
 			data = self.request.recv(1024).strip()
@@ -55,6 +55,9 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 			elif data == '1' :
 				self.request.send("Enter word to be added...: ")
 				new_word = self.request.recv(1024).strip()
+				if new_word in self.words :
+					self.request.send("ERROR!\nThis word already exists. Delete it first.\n\n")
+					continue
 				self.request.send("Enter definition...: ")
 				new_def = self.request.recv(1024).strip()
 				self.words[new_word] = new_def
@@ -62,6 +65,9 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 			elif data == '2' :
 				self.request.send("Enter word to be deleted...: ")
 				del_word = self.request.recv(1024).strip()
+				if del_word not in self.words :
+					self.request.send("ERROR!\nThis word does not exist. Thus it cannot be deleted.\n\n")
+					continue
 				del self.words[del_word]
 
 
