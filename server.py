@@ -4,6 +4,8 @@ import socket, sys, signal
 import threading
 import SocketServer
 
+dict_file = "dictionary.csv"
+
 def main(args) :
 
 	# Set the signal handler and a 5-second alarm
@@ -34,11 +36,23 @@ def handler(signum, frame):
 
 class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
-	words = {
-			'teleurgesteld' : "Disappointed",
-			'jaloers': "Jealous",
-			}
+	words = {}
 
+	def setup(self):
+		print "setup has been called..."
+		# Populate memory dictionary
+		f = open(dict_file, "r")
+
+		for line in f :
+			line = line.split(",")
+			self.words[line[0].strip()] = line[1].strip()
+
+	def finish(self) :
+		print "finish has been called..."
+		f = open(dict_file, "w")
+
+		for k, v in self.words.iteritems() :
+			f.write("%s, %s\n" % (k, v))
 
 	def handle(self):
 		while 1 :
@@ -46,7 +60,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 			for k,v in self.words.iteritems() :
 				self.request.send("%s - %s\n" % (k.ljust(15), v))
 			self.request.send("...\n")
-			self.request.send("Enter an option.\n1 to add a new word.\n2 to delete a word.\nq to quit.\n")
+			self.request.send("Enter an option.\n1 to add a new word.\n2 to delete a word.\n3 to redisplay words.\nq to quit.\n")
 			data = self.request.recv(1024).strip()
 
 			if not data or data == 'q' :
@@ -69,6 +83,10 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 					self.request.send("ERROR!\nThis word does not exist. Thus it cannot be deleted.\n\n")
 					continue
 				del self.words[del_word]
+		
+			elif data == '3' :
+				continue
+
 
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
