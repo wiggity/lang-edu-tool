@@ -3,6 +3,7 @@
 import socket, sys, signal
 import threading
 import SocketServer
+import random
 
 dict_file = "dictionary.csv"
 
@@ -39,7 +40,6 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 	words = {}
 
 	def setup(self):
-		print "setup has been called..."
 		# Populate memory dictionary
 		f = open(dict_file, "r")
 
@@ -48,7 +48,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 			self.words[line[0].strip()] = line[1].strip()
 
 	def finish(self) :
-		print "finish has been called..."
+		# Write dictionary back to disk
 		f = open(dict_file, "w")
 
 		for k, v in self.words.iteritems() :
@@ -60,7 +60,12 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 			for k,v in self.words.iteritems() :
 				self.request.send("%s - %s\n" % (k.ljust(15), v))
 			self.request.send("...\n")
-			self.request.send("Enter an option.\n1 to add a new word.\n2 to delete a word.\n3 to redisplay words.\nq to quit.\n")
+			self.request.send("Enter an option.\n")
+			self.request.send("1 to add a new word.\n")
+			self.request.send("2 to delete a word.\n")
+			self.request.send("3 to redisplay words.\n")
+			self.request.send("4 to enter quiz mode.\n")
+			self.request.send("q to quit.\n")
 			data = self.request.recv(1024).strip()
 
 			if not data or data == 'q' :
@@ -87,9 +92,44 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 			elif data == '3' :
 				continue
 
+			elif data == '4' :
+				# quiz mode...
+				while 1 :
+					if len(self.words) == 0 :
+						self.request.send("There are no entries in the dictionary. Enter some words first.\n")
+						continue
 
+					rand_key = random.choice(self.words.keys())
+					rand_int = random.randint(0, 1)
+
+					if rand_int :
+						self.request.send("What does \"%s\" mean?\n" % (rand_key))
+						answer = self.words[rand_key]
+					else :
+						self.request.send("What does \"%s\" mean?\n" % (self.words[rand_key]))
+						answer = rand_key
+
+					self.request.send("Spacebar to see answer.\n")
+					self.request.send("n to get next word.\n")
+					self.request.send("q to leave quiz mode.\n")
+					input = self.request.recv(1024).strip()
+
+					if input == '' :
+						print "I think i got space bar...."
+						self.request.send("Definition is %s\n" % (answer))
+					
+					elif input == 'n' :
+						continue
+
+					elif input == 'q' :
+						break
+
+
+				
+				
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 	pass
+
 if __name__ == "__main__" :
 	main(sys.argv)
