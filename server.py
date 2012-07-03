@@ -1,65 +1,71 @@
 #!/usr/bin/python
 
-import socket, sys
+import socket, sys, signal
+import threading
+import SocketServer
 
 def main(args) :
 
+	# Set the signal handler and a 5-second alarm
+	signal.signal(signal.SIGINT, handler)
+
 	IP_ADDR = "localhost"
-	IP_PORT = 12345
+	IP_PORT = 0
 
-	UX_SOCK = "mysock"
+	if len(args) >= 2 :
+		IP_PORT = int(args[1])
 
-	if len(args) == 1 :
-		# Assume INET sockets
-		start_ip_sock(IP_ADDR, IP_PORT)
+	server = ThreadedTCPServer((IP_ADDR, IP_PORT), ThreadedTCPRequestHandler)
+	ip, port = server.server_address
 
-	else :
-		if args[1] == "ipv4" or args[1] == "ip" :
-			if len(args) == 3 :
-				IP_PORT = int(args[2])
-			start_ip_sock(IP_ADDR, IP_PORT)
+	# Start a thread with the server -- that thread will then start one
+	# more thread for each request
+	server_thread = threading.Thread(target=server.serve_forever)
+	# Exit the server thread when the main thread terminates
+	server_thread.setDaemon(True)
+	server_thread.start()
+	print "Server loop running in thread: %s (%s:%i)" % (server_thread.getName(), ip, port)
 
-		else :
-			# Use unix sockets
-			if len(args) == 3:
-				UX_SOCK = args[2]
-			start_ux_sock(UX_SOCK)
+	signal.pause()
+	server.shutdown()
 
+def handler(signum, frame):
+	print 'Ctrl-C caught. Server shutdown called.'
 
-def start_ux_sock(ux_sock) :
-	s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
-	s.bind(ux_sock)
-
-	s.listen(1)
-
-	conn, addr = s.accept()
-	print 'Connected by', addr
-	while 1:
-		data = conn.recv(1024)
-		if not data: 
-			break
-		print data
-		conn.send(data)
-	conn.close()
+	words = {
+			'teleurgesteld' : "Disappointed",
+			'jaloers': "Jealous",
+			}
 
 
-def start_ip_sock(addr, port) :
+	def handle(self):
+		while 1 :
+			self.request.send("Word list in memory...\n")
+			for k,v in self.words.iteritems() :
+				self.request.send("%s - %s\n" % (k, v))
+			self.request.send("...\n")
+			self.request.send("Enter an option.\n1 to add a new word.\n2 to delete a word.\nq to quit.\n")
+			data = self.request.recv(1024).strip()
 
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.bind((addr, port))
+			if not data or data == 'q' :
+				break
 
-	s.listen(1)
+			elif data == '1' :
+				self.request.send("Enter word to be added...: ")
+				new_word = self.request.recv(1024).strip()
+				self.request.send("Enter definition...: ")
+				new_def = self.request.recv(1024).strip()
+				self.words[new_word] = new_def
 
-	conn, addr = s.accept()
-	print 'Connected by', addr
-	while 1:
-		data = conn.recv(1024)
-		if not data: 
-			break
-		print data
-		conn.send(data)
-	conn.close()
+			elif data == '2' :
+				self.request.send("Enter word to be deleted...: ")
+				del_word = self.request.recv(1024).strip()
+				del self.words[del_word]
 
+
+class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+	pass
 if __name__ == "__main__" :
 	main(sys.argv)
