@@ -97,7 +97,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 				while 1 :
 					if len(self.words) == 0 :
 						self.request.send("There are no entries in the dictionary. Enter some words first.\n")
-						continue
+						break
 
 					rand_key = random.choice(self.words.keys())
 					rand_int = random.randint(0, 1)
